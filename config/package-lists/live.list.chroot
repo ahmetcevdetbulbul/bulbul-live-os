@@ -1,0 +1,7 @@
+syslinux-utils
+build-essential
+xfce4
+xfce4-terminal
+lightdm
+lightdm-gtk-greeter
+geany

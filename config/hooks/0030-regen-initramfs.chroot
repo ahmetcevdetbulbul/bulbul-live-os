@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+# The kernel/casper postinst already generated an initrd during package
+# install, before config/includes.chroot/etc/casper.conf was copied in.
+# The initrd bundles its own copy of /etc/casper.conf (read by casper-bottom
+# scripts like 15autologin while still inside the initramfs, before
+# switch_root), so it still had USERNAME=ubuntu baked in. Regenerate it now
+# that the real /etc/casper.conf (USERNAME=bulbul) is in place.
+update-initramfs -u -k all

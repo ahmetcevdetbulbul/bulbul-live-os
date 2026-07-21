@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+lb config noauto \
+	--architectures amd64 \
+	--distribution resolute \
+	--parent-distribution resolute \
+	--archive-areas "main universe" \
+	--parent-archive-areas "main universe" \
+	--binary-images iso \
+	--bootloader grub2 \
+	--debian-installer false \
+	--bootappend-live "components console=tty1 console=ttyS0,115200n8" \
+	--memtest none \
+	"${@}"
