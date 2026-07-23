@@ -2,21 +2,34 @@
 
 **A zero-install, boot-and-code Linux live environment for developers.**
 
-Bulbul OS is a lightweight Debian/Ubuntu-based **live ISO** built with [`live-build`](https://live-team.pages.debian.net/live-manual/html/live-manual/index.en.html). Boot it from a USB stick or a virtual machine and you get a ready-to-use XFCE desktop with a C/C++ toolchain and a code editor already installed — no setup, no installation, nothing to configure. Shut it down and it leaves no trace on the host machine.
+Bulbul OS is a lightweight Debian/Ubuntu-based **live ISO** built with [`live-build`](https://live-team.pages.debian.net/live-manual/html/live-manual/index.en.html). Boot it from a USB stick or a virtual machine and you land straight on a ready-to-use XFCE desktop with a full C/C++ toolchain, an OpenGL/GLUT 3D graphics stack, and a code editor already installed — no setup, no installation, nothing to configure. Shut it down and it leaves no trace on the host machine.
+
+Think of it as a **portable, disposable dev box**: plug in a USB drive (or boot a VM), start coding or experimenting with graphics programming in seconds, and walk away with the host system exactly as you found it.
 
 ![build-system](https://img.shields.io/badge/built%20with-live--build-1f6feb?style=flat-square)
 ![base](https://img.shields.io/badge/base-Ubuntu%20%22resolute%22%2026.04-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 ![desktop](https://img.shields.io/badge/desktop-XFCE4-3a3a3a?style=flat-square)
+![graphics](https://img.shields.io/badge/graphics-OpenGL%20%2F%20GLUT-5c2d91?style=flat-square)
 ![arch](https://img.shields.io/badge/arch-amd64-blue?style=flat-square)
 ![status](https://img.shields.io/badge/status-experimental-yellow?style=flat-square)
 
 ---
 
-## 📸 Screenshot
+## 🤔 Why does this exist?
 
-Auto-login straight into a working XFCE desktop, with Geany opened on a sample project on first boot:
+Setting up a Linux box for C/C++ (and graphics) development from scratch — installing a distro, a desktop, a compiler, an editor, OpenGL drivers — is tedious busywork when all you want to do is *write and run some code*. Bulbul OS skips all of that: it's a single ISO that boots directly into a working desktop with everything already wired together, so you can go from "cold boot" to "compiling and rendering a 3D scene" in under a minute.
+
+---
+
+## 📸 Screenshots
+
+**Desktop on first boot** — auto-login straight into XFCE, with Geany opened on sample projects:
 
 ![Bulbul OS Live desktop screenshot](docs/screenshot.png)
+
+**OpenGL/GLUT test** — the bundled `cube3d.cpp` sample, compiled and running live, rendering a rotating, per-face-colored 3D cube:
+
+![Rotating 3D cube OpenGL/GLUT demo](docs/cube3d.png)
 
 ---
 
@@ -25,8 +38,9 @@ Auto-login straight into a working XFCE desktop, with Geany opened on a sample p
 | | |
 |---|---|
 | 🖥️ **XFCE4 desktop** | Fast, lightweight desktop environment (panel, window manager, file manager, desktop icons) |
-| 📝 **Geany editor** | A ready-to-use, syntax-highlighting code editor — opens automatically with a sample `hello.cpp` on first login |
+| 📝 **Geany editor** | A ready-to-use, syntax-highlighting code editor — opens automatically with sample projects on first login |
 | ⚙️ **GCC / G++ toolchain** | `build-essential` is pre-installed, so you can compile C/C++ the moment you boot |
+| 🧊 **OpenGL / GLUT 3D graphics** | `freeglut3-dev` + Mesa are pre-installed — write and run real 3D/OpenGL programs out of the box, no driver hunting. Ships with a rotating-cube demo (`cube3d.cpp`) to prove it works |
 | 🔓 **Passwordless auto-login** | Boots straight to the desktop as user `bulbul` — no login screen to click through |
 | 💻 **Terminal included** | `xfce4-terminal` for anything the GUI doesn't cover |
 | 💽 **Zero install, zero trace** | Runs entirely from RAM/media; nothing is written to the host disk |
@@ -45,7 +59,19 @@ qemu-system-x86_64 -cdrom binary.iso -m 2048 -smp 2
 
 That's it — QEMU boots the ISO and you land on the XFCE desktop automatically.
 
-### Useful flags
+### Or use the bundled `run.sh` helper
+
+This repo ships a ready-made launcher that auto-detects KVM acceleration for you:
+
+```bash
+chmod +x run.sh
+./run.sh                 # boots ./binary.iso
+./run.sh /path/to/other.iso   # or point it at a different ISO
+```
+
+`run.sh` will use `-enable-kvm` automatically if `/dev/kvm` is accessible (near-instant boot), and cleanly falls back to software emulation (TCG) otherwise.
+
+### Useful flags (manual `qemu-system-x86_64` invocation)
 
 | Flag | Purpose |
 |---|---|
@@ -67,7 +93,7 @@ qemu-system-x86_64 -cdrom binary.iso -m 2048 -smp 2 -enable-kvm
 
 ## 🪟 Running from Windows via WSL
 
-If you're on Windows, the easiest path is QEMU running *inside* WSL.
+If you're on Windows, the easiest path is QEMU running *inside* WSL. Total beginner? Follow these steps exactly, in order.
 
 ### 1. Install WSL (if you haven't already)
 
@@ -86,9 +112,25 @@ sudo apt update
 sudo apt install -y qemu-system-x86
 ```
 
-### 3. Get `binary.iso` into your WSL filesystem
+### 3. (Optional but recommended) Enable KVM acceleration
 
-Either build it (see [Building from Source](#-building-from-source)) or copy a pre-built ISO in, e.g.:
+Software emulation works, but hardware acceleration is dramatically faster (a ~40 second boot instead of ~2-3 minutes). Inside WSL:
+
+```bash
+sudo usermod -aG kvm "$USER"
+```
+
+Then fully restart WSL from **PowerShell** (not just close the terminal window):
+
+```powershell
+wsl --terminate Ubuntu
+```
+
+Reopen your WSL terminal — `/dev/kvm` should now be usable, and `run.sh` will pick it up automatically.
+
+### 4. Get `binary.iso` into your WSL filesystem
+
+Either build it yourself (see [Building from Source](#-building-from-source)) or copy a pre-built ISO in, e.g.:
 
 ```bash
 cp /mnt/c/Users/<you>/Downloads/binary.iso ~/bulbul-live/
@@ -97,14 +139,15 @@ cd ~/bulbul-live
 
 > 💡 Keep the ISO on the Linux (`ext4`) side of WSL, not under `/mnt/c/...` — disk I/O is much faster there, which matters a lot for a live ISO.
 
-### 4. Boot it
+### 5. Boot it
 
 ```bash
-qemu-system-x86_64 -cdrom binary.iso -m 2048 -smp 2
+chmod +x run.sh
+./run.sh
 ```
 
 - **Windows 11 (WSLg):** the QEMU window just pops up on your Windows desktop like a normal app — nothing else to configure.
-- **Windows 10 / no WSLg:** run with `-vnc :0` instead, then connect a VNC client (e.g. [TightVNC](https://www.tightvnc.com/), [RealVNC](https://www.realvnc.com/)) from Windows to `localhost:5900`.
+- **Windows 10 / no WSLg:** run plain QEMU with `-vnc :0` instead, then connect a VNC client (e.g. [TightVNC](https://www.tightvnc.com/), [RealVNC](https://www.realvnc.com/)) from Windows to `localhost:5900`.
 
 ```bash
 qemu-system-x86_64 -cdrom binary.iso -m 2048 -smp 2 -vnc :0
@@ -147,6 +190,19 @@ This is intended strictly for a disposable, ephemeral live session — **do not*
 
 ---
 
+## 🧪 Try it yourself: compiling the 3D cube demo
+
+Once booted, open a terminal (or use the Geany tab that's already open on `cube3d.cpp`) and run:
+
+```bash
+g++ ~/cube3d.cpp -o ~/cube3d -lGL -lGLU -lglut
+~/cube3d
+```
+
+You should see a window with a spinning, multi-colored cube — a quick sanity check that the OpenGL/GLUT stack is fully functional.
+
+---
+
 ## 🔨 Building from Source
 
 This repository contains the [`live-build`](https://live-team.pages.debian.net/live-manual/html/live-manual/index.en.html) configuration used to produce `binary.iso` — the ISO itself isn't tracked in git (it's ~1.8 GB of compiled/downloaded packages, not source).
@@ -157,8 +213,8 @@ This repository contains the [`live-build`](https://live-team.pages.debian.net/l
 sudo apt update
 sudo apt install -y live-build
 
-git clone https://github.com/<your-username>/bulbul-live.git
-cd bulbul-live
+git clone https://github.com/ahmetcevdetbulbul/bulbul-live-os.git
+cd bulbul-live-os
 
 sudo lb build
 ```
@@ -183,6 +239,27 @@ sudo lb clean --all
 - **[LightDM](https://github.com/canonical/lightdm)** — display/login manager
 - **[Geany](https://www.geany.org/)** — lightweight IDE/text editor
 - **GCC / G++** (`build-essential`) — C/C++ compiler toolchain
+- **OpenGL / Mesa / FreeGLUT** (`freeglut3-dev`, `mesa-utils`) — 3D graphics programming stack
+
+---
+
+## 🤝 Contributing / Developing
+
+Contributions, bug reports, and suggestions are welcome.
+
+1. **Fork** the repo and create a branch for your change.
+2. Edit the relevant `live-build` config:
+   - `config/package-lists/live.list.chroot` — add/remove packages
+   - `config/hooks/*.chroot` — scripts that run inside the chroot during build (users, auto-login, sample files, autostart entries)
+   - `config/includes.chroot/` — files copied verbatim into the live filesystem
+3. Rebuild and test:
+   ```bash
+   sudo lb clean --binary && sudo lb build
+   ./run.sh
+   ```
+4. Open a **pull request** describing what changed and why. Screenshots/screen recordings of the change in action are always appreciated.
+
+If you're only iterating on hooks/package-lists (not the bootloader or initramfs), you don't need a full `lb clean --all` between attempts — see the comments in `auto/build` and `config/hooks/` for the faster incremental workflow.
 
 ---
 
@@ -206,11 +283,13 @@ bulbul-live/
 ├── auto/                    # live-build's build/clean/config entry-point scripts
 ├── config/
 │   ├── package-lists/       # Package selection (live.list.chroot)
-│   ├── hooks/                # Post-install chroot hooks (users, auto-login, initramfs)
+│   ├── hooks/                # Post-install chroot hooks (users, auto-login, sample code, initramfs)
 │   ├── includes.chroot/      # Files copied verbatim into the live filesystem
 │   └── templates/            # Custom GRUB template, etc.
+├── run.sh                   # QEMU launcher with automatic KVM detection
 └── docs/
-    └── screenshot.png
+    ├── screenshot.png
+    └── cube3d.png
 ```
 
 ---

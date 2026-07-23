@@ -33,12 +33,97 @@ int main()
 }
 EOF
 
+# A second sample demonstrating OpenGL/GLUT: a rotating 3D cube.
+# Build: g++ cube3d.cpp -o cube3d -lGL -lGLU -lglut
+cat > /home/bulbul/cube3d.cpp << 'EOF'
+#include <GL/glut.h>
+
+static float angle = 0.0f;
+
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glLoadIdentity();
+    glTranslatef(0.0f, 0.0f, -5.0f);
+    glRotatef(angle, 1.0f, 1.0f, 0.0f);
+
+    glBegin(GL_QUADS);
+        // Front face (red)
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex3f(-1, -1,  1); glVertex3f( 1, -1,  1);
+        glVertex3f( 1,  1,  1); glVertex3f(-1,  1,  1);
+
+        // Back face (green)
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glVertex3f(-1, -1, -1); glVertex3f(-1,  1, -1);
+        glVertex3f( 1,  1, -1); glVertex3f( 1, -1, -1);
+
+        // Top face (blue)
+        glColor3f(0.0f, 0.0f, 1.0f);
+        glVertex3f(-1,  1, -1); glVertex3f(-1,  1,  1);
+        glVertex3f( 1,  1,  1); glVertex3f( 1,  1, -1);
+
+        // Bottom face (yellow)
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glVertex3f(-1, -1, -1); glVertex3f( 1, -1, -1);
+        glVertex3f( 1, -1,  1); glVertex3f(-1, -1,  1);
+
+        // Right face (magenta)
+        glColor3f(1.0f, 0.0f, 1.0f);
+        glVertex3f( 1, -1, -1); glVertex3f( 1,  1, -1);
+        glVertex3f( 1,  1,  1); glVertex3f( 1, -1,  1);
+
+        // Left face (cyan)
+        glColor3f(0.0f, 1.0f, 1.0f);
+        glVertex3f(-1, -1, -1); glVertex3f(-1, -1,  1);
+        glVertex3f(-1,  1,  1); glVertex3f(-1,  1, -1);
+    glEnd();
+
+    glutSwapBuffers();
+}
+
+void timer(int)
+{
+    angle += 2.0f;
+    if (angle > 360.0f)
+        angle -= 360.0f;
+    glutPostRedisplay();
+    glutTimerFunc(16, timer, 0);
+}
+
+void reshape(int w, int h)
+{
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(45.0, (double)w / (double)(h ? h : 1), 1.0, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+int main(int argc, char** argv)
+{
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitWindowSize(640, 480);
+    glutCreateWindow("bulbul-live: Rotating Cube");
+
+    glEnable(GL_DEPTH_TEST);
+
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutTimerFunc(0, timer, 0);
+
+    glutMainLoop();
+    return 0;
+}
+EOF
+
 mkdir -p /etc/xdg/autostart
 cat > /etc/xdg/autostart/geany-helloworld.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Geany (hello.cpp)
-Exec=geany /home/bulbul/hello.cpp
+Exec=geany /home/bulbul/hello.cpp /home/bulbul/cube3d.cpp
 X-GNOME-Autostart-enabled=true
 EOF
 

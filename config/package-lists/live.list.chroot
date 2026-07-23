@@ -5,3 +5,5 @@ xfce4-terminal
 lightdm
 lightdm-gtk-greeter
 geany
+freeglut3-dev
+mesa-utils
