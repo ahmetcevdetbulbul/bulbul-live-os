@@ -10,6 +10,7 @@ Think of it as a **portable, disposable dev box**: plug in a USB drive (or boot 
 ![base](https://img.shields.io/badge/base-Ubuntu%20%22resolute%22%2026.04-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 ![desktop](https://img.shields.io/badge/desktop-XFCE4-3a3a3a?style=flat-square)
 ![graphics](https://img.shields.io/badge/graphics-OpenGL%20%2F%20GLUT-5c2d91?style=flat-square)
+![persistence](https://img.shields.io/badge/storage-persistent%20disk-2f9e44?style=flat-square)
 ![arch](https://img.shields.io/badge/arch-amd64-blue?style=flat-square)
 ![status](https://img.shields.io/badge/status-experimental-yellow?style=flat-square)
 
@@ -23,7 +24,7 @@ Setting up a Linux box for C/C++ (and graphics) development from scratch — ins
 
 ## 📸 Screenshots
 
-**Desktop on first boot** — auto-login straight into XFCE, with Geany opened on sample projects:
+**Desktop on first boot** — auto-login straight into a clean XFCE desktop:
 
 ![Bulbul OS Live desktop screenshot](docs/screenshot.png)
 
@@ -38,12 +39,13 @@ Setting up a Linux box for C/C++ (and graphics) development from scratch — ins
 | | |
 |---|---|
 | 🖥️ **XFCE4 desktop** | Fast, lightweight desktop environment (panel, window manager, file manager, desktop icons) |
-| 📝 **Geany editor** | A ready-to-use, syntax-highlighting code editor — opens automatically with sample projects on first login |
+| 📝 **Geany editor** | A ready-to-use, syntax-highlighting code editor, one click away from the desktop icon or the Applications menu — sample projects (`hello.cpp`, `cube3d.cpp`) are waiting in the home folder |
 | ⚙️ **GCC / G++ toolchain** | `build-essential` is pre-installed, so you can compile C/C++ the moment you boot |
 | 🧊 **OpenGL / GLUT 3D graphics** | `freeglut3-dev` + Mesa are pre-installed — write and run real 3D/OpenGL programs out of the box, no driver hunting. Ships with a rotating-cube demo (`cube3d.cpp`) to prove it works |
+| 💾 **Optional persistent storage** | Attach a disk image and files you save under `~/Persistent` survive a reboot — everything else still runs from RAM as usual |
 | 🔓 **Passwordless auto-login** | Boots straight to the desktop as user `bulbul` — no login screen to click through |
 | 💻 **Terminal included** | `xfce4-terminal` for anything the GUI doesn't cover |
-| 💽 **Zero install, zero trace** | Runs entirely from RAM/media; nothing is written to the host disk |
+| 💽 **Zero install, zero trace** | Runs entirely from RAM/media; nothing is written to the host disk (unless you opt into persistent storage) |
 
 ---
 
@@ -192,14 +194,54 @@ This is intended strictly for a disposable, ephemeral live session — **do not*
 
 ## 🧪 Try it yourself: compiling the 3D cube demo
 
-Once booted, open a terminal (or use the Geany tab that's already open on `cube3d.cpp`) and run:
+Once booted, open a terminal (`xfce4-terminal` from the panel/dock) and run:
 
 ```bash
 g++ ~/cube3d.cpp -o ~/cube3d -lGL -lGLU -lglut
 ~/cube3d
 ```
 
-You should see a window with a spinning, multi-colored cube — a quick sanity check that the OpenGL/GLUT stack is fully functional.
+You should see a window with a spinning, multi-colored cube — a quick sanity check that the OpenGL/GLUT stack is fully functional. Or just open `~/cube3d.cpp` / `~/hello.cpp` in Geany (desktop icon or Applications menu) and build from there.
+
+---
+
+## 💾 Persistent Storage
+
+By default, Bulbul OS is fully RAM-based: turn it off and every file you created is gone. If you'd rather keep your work between boots, attach a small virtual disk and it'll be auto-formatted (first use) and auto-mounted at `~/Persistent` on every boot from then on — nothing else on the system persists, only that one folder.
+
+### 1. Create the disk (once)
+
+```bash
+qemu-img create -f qcow2 persist.qcow2 5G
+```
+
+This creates a 5 GB **sparse** file (it starts at a few hundred KB on disk and only grows as you actually write data into it — it won't eat 5 GB up front).
+
+### 2. Boot with `run.sh`
+
+```bash
+./run.sh
+```
+
+`run.sh` automatically looks for `persist.qcow2` next to itself and attaches it as a virtio disk if it's there — no flags needed. On first boot it gets formatted (ext4) automatically; every boot after that it's just mounted as-is. You'll see this in the launcher output:
+
+```
+Persist: /home/ahmet_blbl/bulbul-live/persist.qcow2 (guest icinde /home/bulbul/Persistent altina otomatik mount edilir)
+```
+
+Save anything you want to keep under **`~/Persistent`** in the live session. Files saved anywhere else (Desktop, `~/Downloads`, etc.) still vanish on shutdown, exactly like before.
+
+> 💡 Want a bigger or smaller disk, or to keep it somewhere else? `qemu-img create -f qcow2 <path> <size>` with any size/path, then point `run.sh` at it with `QEMU_PERSIST_IMG=<path> ./run.sh`.
+
+### How it works
+
+A small systemd service (`bulbul-persist.service`, installed by `config/hooks/0040-persistent-storage.chroot`) runs very early at boot, before the desktop starts:
+
+1. Waits for the virtio disk (identified by a stable `serial=bulbulpersist` tag, so it doesn't matter what device node the kernel assigns it).
+2. If the disk has no filesystem yet (a brand-new `persist.qcow2`), formats it with ext4.
+3. Mounts it at `/home/bulbul/Persistent` and hands ownership to the `bulbul` user.
+
+If no disk is attached, the service just exits immediately and the system behaves exactly like the fully-RAM-based default — persistence is entirely opt-in.
 
 ---
 
@@ -250,7 +292,7 @@ Contributions, bug reports, and suggestions are welcome.
 1. **Fork** the repo and create a branch for your change.
 2. Edit the relevant `live-build` config:
    - `config/package-lists/live.list.chroot` — add/remove packages
-   - `config/hooks/*.chroot` — scripts that run inside the chroot during build (users, auto-login, sample files, autostart entries)
+   - `config/hooks/*.chroot` — scripts that run inside the chroot during build (users, auto-login, sample files, persistent-storage service)
    - `config/includes.chroot/` — files copied verbatim into the live filesystem
 3. Rebuild and test:
    ```bash
@@ -269,7 +311,7 @@ If you're only iterating on hooks/package-lists (not the bootloader or initramfs
 - [ ] **Java / OpenJDK**
 - [ ] **VS Code** (or a lighter alternative code editor option)
 - [ ] Hybrid ISO output (`--binary-images iso-hybrid`) for reliable `dd`-to-USB booting on all firmware types
-- [ ] Persistent storage option (save work across reboots)
+- [x] Persistent storage option (save work across reboots) — see [Persistent Storage](#-persistent-storage)
 - [ ] Published pre-built ISO releases
 
 Contributions and suggestions are welcome — feel free to open an issue.
@@ -286,7 +328,8 @@ bulbul-live/
 │   ├── hooks/                # Post-install chroot hooks (users, auto-login, sample code, initramfs)
 │   ├── includes.chroot/      # Files copied verbatim into the live filesystem
 │   └── templates/            # Custom GRUB template, etc.
-├── run.sh                   # QEMU launcher with automatic KVM detection
+├── run.sh                   # QEMU launcher: KVM auto-detect + optional persistent disk
+├── persist.qcow2            # Optional persistent-storage disk (gitignored, create it yourself)
 └── docs/
     ├── screenshot.png
     └── cube3d.png

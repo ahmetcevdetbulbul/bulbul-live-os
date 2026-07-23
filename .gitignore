@@ -1,6 +1,7 @@
 # --- Built ISO / images (large, not source) ---
 *.iso
 *.img
+*.qcow2
 *.zsync*
 binary.contents
 binary.packages

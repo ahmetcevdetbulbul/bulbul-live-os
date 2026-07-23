@@ -1,0 +1,64 @@
+#!/bin/sh
+set -e
+
+# Support an optional persistent-storage disk (see run.sh: attached as a
+# virtio-blk device with serial=bulbulpersist when QEMU_PERSIST_IMG is set,
+# e.g. persist.qcow2 in the project root). If present, format it with ext4
+# on first use and mount it at /home/bulbul/Persistent on every boot, so
+# files saved there survive a reboot even though everything else in this
+# live session runs from RAM and is discarded.
+
+mkdir -p /usr/local/sbin
+cat > /usr/local/sbin/bulbul-persist-mount.sh << 'EOF'
+#!/bin/sh
+set -e
+
+DISK=/dev/disk/by-id/virtio-bulbulpersist
+MOUNTPOINT=/home/bulbul/Persistent
+
+# The virtio-blk symlink shows up shortly after udev processes the device;
+# give it a few seconds rather than failing outright on a slow first boot.
+for _ in $(seq 1 20)
+do
+	[ -e "$DISK" ] && break
+	sleep 0.5
+done
+
+if [ ! -e "$DISK" ]
+then
+	# No persistent disk was attached this boot; nothing to do.
+	exit 0
+fi
+
+# Blank disk (freshly created qcow2) has no recognizable filesystem yet.
+if ! blkid "$DISK" >/dev/null 2>&1
+then
+	mkfs.ext4 -F -L bulbul-persist "$DISK"
+fi
+
+mkdir -p "$MOUNTPOINT"
+mount "$DISK" "$MOUNTPOINT"
+chown bulbul:bulbul "$MOUNTPOINT"
+EOF
+chmod 755 /usr/local/sbin/bulbul-persist-mount.sh
+
+cat > /etc/systemd/system/bulbul-persist.service << 'EOF'
+[Unit]
+Description=Format/mount bulbul-live persistent storage disk (if attached)
+DefaultDependencies=no
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+Before=sysinit.target lightdm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/bulbul-persist-mount.sh
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+mkdir -p /etc/systemd/system/sysinit.target.wants
+ln -sf /etc/systemd/system/bulbul-persist.service \
+	/etc/systemd/system/sysinit.target.wants/bulbul-persist.service

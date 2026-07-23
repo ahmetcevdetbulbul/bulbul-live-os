@@ -8,6 +8,7 @@ RAM_MB="${QEMU_RAM:-2048}"
 SMP="${QEMU_SMP:-2}"
 MONITOR_PORT="${QEMU_MONITOR_PORT:-4444}"
 SERIAL_SOCK="${QEMU_SERIAL_SOCK:-/tmp/serial.sock}"
+PERSIST_IMG="${QEMU_PERSIST_IMG:-$PROJECT_DIR/persist.qcow2}"
 
 if [ ! -f "$ISO" ]; then
     echo "HATA: ISO bulunamadi: $ISO" >&2
@@ -35,6 +36,14 @@ fi
 
 rm -f "$SERIAL_SOCK"
 
+PERSIST_ARGS=()
+if [ -f "$PERSIST_IMG" ]; then
+    PERSIST_ARGS=(-drive file="$PERSIST_IMG",if=none,id=persist0,format=qcow2 -device virtio-blk-pci,drive=persist0,serial=bulbulpersist)
+    echo "Persist: $PERSIST_IMG (guest icinde /home/bulbul/Persistent altina otomatik mount edilir)"
+else
+    echo "UYARI: kalici disk bulunamadi ($PERSIST_IMG), kalici depolama olmadan baslatiliyor."
+fi
+
 echo "ISO:    $ISO"
 echo "RAM:    ${RAM_MB}MB   SMP: $SMP"
 echo "Monitor: telnet 127.0.0.1:$MONITOR_PORT"
@@ -49,5 +58,6 @@ exec qemu-system-x86_64 \
     -boot d \
     -usb -device usb-tablet \
     -no-reboot \
+    "${PERSIST_ARGS[@]}" \
     -serial unix:"$SERIAL_SOCK",server,nowait \
     -monitor telnet:127.0.0.1:"$MONITOR_PORT",server,nowait
